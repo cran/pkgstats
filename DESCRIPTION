@@ -1,6 +1,6 @@
 Package: pkgstats
 Title: Metrics of R Packages
-Version: 0.0.5
+Version: 0.1.1
 Authors@R: 
     person("Mark", "Padgham", , "mark.padgham@email.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-2172-5265"))
@@ -16,7 +16,7 @@ URL: https://docs.ropensci.org/pkgstats/,
 BugReports: https://github.com/ropensci-review-tools/pkgstats/issues
 Imports: brio, checkmate, dplyr, fs, igraph, methods, readr, sys, withr
 Suggests: curl, hms, jsonlite, knitr, parallel, pkgbuild, Rcpp,
-        rmarkdown, roxygen2, testthat (>= 3.0.0), visNetwork
+        rmarkdown, roxygen2, testthat (>= 3.0.0), tibble, visNetwork
 LinkingTo: cpp11
 VignetteBuilder: knitr
 Config/testthat/edition: 3
@@ -25,8 +25,8 @@ Language: en-US
 NeedsCompilation: yes
 RoxygenNote: 7.2.0
 SystemRequirements: ctags, global, C++11
-Packaged: 2022-06-15 10:15:13 UTC; smexus
+Packaged: 2022-06-21 11:44:04 UTC; smexus
 Author: Mark Padgham [aut, cre] (<https://orcid.org/0000-0003-2172-5265>)
 Maintainer: Mark Padgham <mark.padgham@email.com>
 Repository: CRAN
-Date/Publication: 2022-06-17 10:10:02 UTC
+Date/Publication: 2022-06-21 13:20:04 UTC

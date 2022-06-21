@@ -13,14 +13,14 @@ options (repos = c (
     CRAN = "https://cloud.r-project.org"
 ))
 
+## ----install, eval = FALSE----------------------------------------------------
+#  install.packages ("pkgstats")
+
 ## ----options, eval = FALSE----------------------------------------------------
 #  options (repos = c (
 #      ropenscireviewtools = "https://ropensci-review-tools.r-universe.dev",
 #      CRAN = "https://cloud.r-project.org"
 #  ))
-
-## ----install, eval = FALSE----------------------------------------------------
-#  install.packages ("pkgstats")
 
 ## ----remotes, eval = FALSE----------------------------------------------------
 #  remotes::install_github ("ropensci-review-tools/pkgstats")

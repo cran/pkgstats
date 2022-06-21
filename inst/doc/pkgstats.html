@@ -11,7 +11,7 @@
 
 <meta name="author" content="Mark Padgham" />
 
-<meta name="date" content="2022-06-15" />
+<meta name="date" content="2022-06-21" />
 
 <title>Package Statistics</title>
 
@@ -365,7 +365,7 @@ pre code {
 
 <h1 class="title toc-ignore">Package Statistics</h1>
 <h4 class="author">Mark Padgham</h4>
-<h4 class="date">2022-06-15</h4>
+<h4 class="date">2022-06-21</h4>
 
 </div>
 
@@ -415,16 +415,13 @@ except for <code>objects</code> and <code>network</code> represent
 summary data:</p>
 <pre class="r"><code>s [!names (s) %in% c (&quot;objects&quot;, &quot;network&quot;, &quot;external_calls&quot;)]
 #&gt; $loc
-#&gt; # A tibble: 6 × 12
-#&gt; # Groups:   language, dir [6]
-#&gt;   language dir       nfiles nlines ncode  ndoc nempty nspaces nchars nexpr ntabs
-#&gt;   &lt;chr&gt;    &lt;chr&gt;      &lt;int&gt;  &lt;int&gt; &lt;int&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;  &lt;int&gt; &lt;dbl&gt; &lt;int&gt;
-#&gt; 1 C++      src            3    364   276    21     67     932   6983     1     0
-#&gt; 2 HTML     vignettes      1    466     0   376     90    4243 621125    NA     0
-#&gt; 3 R        R             24   4724  3402   640    682   30297 114302     1     0
-#&gt; 4 R        tests          7    300   234     5     61     511   5543     1     0
-#&gt; 5 R        vignettes      2     54    28    18      8     121   1444     1     0
-#&gt; 6 Rmd      vignettes      2    346   276     8     62    1470  11144     1     0
+#&gt; # A tibble: 4 × 11
+#&gt;   language dir       nfiles nlines ncode nempty nspaces nchars nexpr ntabs
+#&gt;   &lt;chr&gt;    &lt;chr&gt;      &lt;int&gt;  &lt;int&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;  &lt;int&gt; &lt;int&gt; &lt;int&gt;
+#&gt; 1 C++      src            3    364   276     67     932   6983     1     0
+#&gt; 2 R        R             24   4727   345    682     333 114334     1     0
+#&gt; 3 R        tests          7    300   234     61     511   5543     1     0
+#&gt; 4 Rmd      vignettes      2    347   278     61    1483  11290     1     0
 #&gt; # … with 1 more variable: indentation &lt;int&gt;
 #&gt; 
 #&gt; $vignettes
@@ -436,18 +433,18 @@ summary data:</p>
 #&gt;           0           0           0 
 #&gt; 
 #&gt; $desc
-#&gt;    package version                date license
-#&gt; 1 pkgstats   0.0.5 2022-06-15 12:15:00   GPL-3
-#&gt;                                                                                      urls
-#&gt; 1 https://docs.ropensci.org/pkgstats/,\nhttps://github.com/ropensci-review-tools/pkgstats
+#&gt;    package verion                     date license
+#&gt; 1 pkgstats  0.1.1 Tue Jun 21 13:44:04 2022   GPL-3
+#&gt;                                                                                       urls
+#&gt; 1 https://docs.ropensci.org/pkgstats/,\nnhttps://github.com/ropensci-review-tools/pkgstats
 #&gt;                                                       bugs aut ctb fnd rev ths
 #&gt; 1 https://github.com/ropensci-review-tools/pkgstats/issues   1   0   0   0   0
 #&gt;   trl depends                                                        imports
 #&gt; 1   0      NA brio, checkmate, dplyr, fs, igraph, methods, readr, sys, withr
 #&gt;                                                                                          suggests
 #&gt; 1 curl, hms, jsonlite, knitr, parallel, pkgbuild, Rcpp, rmarkdown, roxygen2, testthat, visNetwork
-#&gt;   enhances linking_to
-#&gt; 1       NA      cpp11
+#&gt;   enchances linking_to
+#&gt; 1      &lt;NA&gt;      cpp11
 #&gt; 
 #&gt; $translations
 #&gt; [1] NA</code></pre>
@@ -465,16 +462,13 @@ than most open source code counting libraries. For example, the counts
 in <code>pkgstats</code> are able to distinguish and separately count
 code chunks and text lines in <code>.Rmd</code> files.</p>
 <pre class="r"><code>s$loc
-#&gt; # A tibble: 6 × 12
-#&gt; # Groups:   language, dir [6]
-#&gt;   language dir       nfiles nlines ncode  ndoc nempty nspaces nchars nexpr ntabs
-#&gt;   &lt;chr&gt;    &lt;chr&gt;      &lt;int&gt;  &lt;int&gt; &lt;int&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;  &lt;int&gt; &lt;dbl&gt; &lt;int&gt;
-#&gt; 1 C++      src            3    364   276    21     67     932   6983     1     0
-#&gt; 2 HTML     vignettes      1    466     0   376     90    4243 621125    NA     0
-#&gt; 3 R        R             24   4724  3402   640    682   30297 114302     1     0
-#&gt; 4 R        tests          7    300   234     5     61     511   5543     1     0
-#&gt; 5 R        vignettes      2     54    28    18      8     121   1444     1     0
-#&gt; 6 Rmd      vignettes      2    346   276     8     62    1470  11144     1     0
+#&gt; # A tibble: 4 × 11
+#&gt;   language dir       nfiles nlines ncode nempty nspaces nchars nexpr ntabs
+#&gt;   &lt;chr&gt;    &lt;chr&gt;      &lt;int&gt;  &lt;int&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;  &lt;int&gt; &lt;int&gt; &lt;int&gt;
+#&gt; 1 C++      src            3    364   276     67     932   6983     1     0
+#&gt; 2 R        R             24   4727   345    682     333 114334     1     0
+#&gt; 3 R        tests          7    300   234     61     511   5543     1     0
+#&gt; 4 Rmd      vignettes      2    347   278     61    1483  11290     1     0
 #&gt; # … with 1 more variable: indentation &lt;int&gt;</code></pre>
 <p>That output includes the following components, grouped by both
 computer language and package directory:</p>
@@ -511,7 +505,7 @@ numbers of white spaces, noting that the <code>nchars</code> value
 quantifies total characters including white spaces.</p>
 <pre class="r"><code>index &lt;- which (s$loc$dir %in% c (&quot;R&quot;, &quot;src&quot;)) # consider source code only
 sum (s$loc$nspaces [index]) / sum (s$loc$nchars [index])
-#&gt; [1] 0.2574844</code></pre>
+#&gt; [1] 0.01042723</code></pre>
 <p>Finally, the <code>ntabs</code> statistic can be used to identify
 whether code uses tab characters as indentation, otherwise the
 <code>indentation</code> statistics indicate median numbers of white
@@ -524,18 +518,18 @@ function</a> are described further below.</p>
 <h2><code>&quot;desc&quot;</code>: The package “DESCRIPTION” file</h2>
 <p>The <code>desc</code> item looks like this:</p>
 <pre class="r"><code>s$desc
-#&gt;    package version                date license
-#&gt; 1 pkgstats   0.0.5 2022-06-15 12:15:00   GPL-3
-#&gt;                                                                                      urls
-#&gt; 1 https://docs.ropensci.org/pkgstats/,\nhttps://github.com/ropensci-review-tools/pkgstats
+#&gt;    package verion                     date license
+#&gt; 1 pkgstats  0.1.1 Tue Jun 21 13:44:04 2022   GPL-3
+#&gt;                                                                                       urls
+#&gt; 1 https://docs.ropensci.org/pkgstats/,\nnhttps://github.com/ropensci-review-tools/pkgstats
 #&gt;                                                       bugs aut ctb fnd rev ths
 #&gt; 1 https://github.com/ropensci-review-tools/pkgstats/issues   1   0   0   0   0
 #&gt;   trl depends                                                        imports
 #&gt; 1   0      NA brio, checkmate, dplyr, fs, igraph, methods, readr, sys, withr
 #&gt;                                                                                          suggests
 #&gt; 1 curl, hms, jsonlite, knitr, parallel, pkgbuild, Rcpp, rmarkdown, roxygen2, testthat, visNetwork
-#&gt;   enhances linking_to
-#&gt; 1       NA      cpp11</code></pre>
+#&gt;   enchances linking_to
+#&gt; 1      &lt;NA&gt;      cpp11</code></pre>
 <p>This item includes the following components:</p>
 <ul>
 <li>Package name, version, date, and license</li>
@@ -565,14 +559,14 @@ Object tables look like this:</p>
 #&gt; 3 R/archive-trawl.R             rm_prev_files function        R  24     2
 #&gt; 4 R/archive-trawl.R pkgstats_fns_from_archive function        R  82     7
 #&gt; 5         R/cpp11.R                   cpp_loc function        R   3     4
-#&gt; 6 R/ctags-install.R               clone_ctags function        R  17     1
-#&gt;   has_dots exported param_nchars_md param_nchars_mn num_doclines
-#&gt; 1    FALSE     TRUE             133        159.7778           77
-#&gt; 2    FALSE    FALSE              NA              NA           NA
-#&gt; 3    FALSE    FALSE              NA              NA           NA
-#&gt; 4    FALSE     TRUE             163        174.5714           50
-#&gt; 5    FALSE    FALSE              NA              NA           NA
-#&gt; 6    FALSE    FALSE              NA              NA           NA</code></pre>
+#&gt; 6 R/ctags-install.R                clone_ctag function        R  17     1
+#&gt;   has_dots exported param_nchards_md param_nchards_mn num_doclines
+#&gt; 1    FALSE     TRUE              133         159.7778           77
+#&gt; 2    FALSE    FALSE               NA               NA           NA
+#&gt; 3    FALSE    FALSE               NA               NA           NA
+#&gt; 4    FALSE     TRUE              163         174.5714           50
+#&gt; 5    FALSE    FALSE               NA               NA           NA
+#&gt; 6    FALSE    FALSE               NA               NA           NA</code></pre>
 <p>Objects are primarily sorted by language, with R-language objects
 given first. These are mostly functions, and include statistics on:</p>
 <ul>
@@ -598,10 +592,10 @@ depending on another object. Each row thus represents one edge of a
 <code>to</code> columns representing the network vertices or nodes.</p>
 <pre class="r"><code>head (s$network)
 #&gt;                   file line1                    from                        to
-#&gt; 1   R/external-calls.R    11   external_call_network      extract_call_content
-#&gt; 2   R/external-calls.R    26   external_call_network add_base_recommended_pkgs
-#&gt; 3   R/external-calls.R    38   external_call_network   add_other_pkgs_to_calls
-#&gt; 4   R/external-calls.R   326 add_other_pkgs_to_calls             control_parse
+#&gt; 1   R/external_calls.R    11   external_call_network      extract_call_content
+#&gt; 2   R/external_calls.R    26   external_call_network add_base_recommended_pkgs
+#&gt; 3   R/external_calls.R    38   external_call_network   add_other_pkgs_to_calls
+#&gt; 4   R/external_calls.R   326 add_other_pkgs_to_calls             control_parse
 #&gt; 5 R/pkgstats-summary.R    39        pkgstats_summary                null_stats
 #&gt; 6 R/pkgstats-summary.R    50        pkgstats_summary               loc_summary
 #&gt;   language cluster_dir centrality_dir cluster_undir centrality_undir
@@ -652,12 +646,12 @@ object looks like this:</p>
 <p>These data are converted to a summary form by the <a href="https://docs.ropensci.org/pkgstats/reference/pkgstats_summary.html"><code>pkgstats_summary()</code>
 function</a>, which tabulates numbers of external calls and unique
 functions from each package. These data are presented as a single
-character string which can be easily converted to the corresponding
-numeric values using code like the following:</p>
+character string which looks like this:</p>
 <pre class="r"><code>s_summ &lt;- pkgstats_summary (s)
-print (s_summ$external_calls)
-#&gt; [1] &quot;base:581:84,brio:11:2,curl:4:3,dplyr:7:4,fs:4:2,graphics:10:2,hms:2:1,igraph:3:3,parallel:2:1,pkgstats:126:73,readr:8:5,stats:19:3,sys:14:1,tools:3:2,utils:22:7,visNetwork:3:2,withr:6:2&quot;
-x &lt;- strsplit (s_summ$external_calls, &quot;,&quot;) [[1]]
+print (s_summ$external_calls)</code></pre>
+<p>These data can be easily converted to the corresponding numeric
+values using code like the following:</p>
+<pre class="r"><code>x &lt;- strsplit (s_summ$external_calls, &quot;,&quot;) [[1]]
 x &lt;- do.call (rbind, strsplit (x, &quot;:&quot;))
 x &lt;- data.frame (
     pkg = x [, 1],
