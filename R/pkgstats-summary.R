@@ -29,10 +29,9 @@
 #' @export
 #' @examples
 #' f <- system.file ("extdata", "pkgstats_9.9.tar.gz", package = "pkgstats")
-#' \dontrun{
+#' @examplesIf ctags_test (noerror = TRUE)
 #' p <- pkgstats (f)
 #' s <- pkgstats_summary (p)
-#' }
 pkgstats_summary <- function (s = NULL) {
 
     if (is.null (s)) {
@@ -157,21 +156,34 @@ null_stats <- function () {
 loc_summary <- function (x) {
 
     # suprress no visible binding notes:
-    language <- nfiles <- nlines <- ncode <-
-        ndoc <- nempty <- nspaces <- nchars <- NULL
+    nfiles <- ncode <- ndoc <- nempty <- nspaces <- nchars <- language <- NULL
 
     indentation <- loc_indentation (x)
 
+    rm_dirs <- c ("inst/doc", "inst/extdata")
+    x <- x [which (!x$dir %in% rm_dirs), ]
+    rm_langs <- c ("HTML", "CSS", "YAML")
+    x <- x [which (!x$language %in% rm_langs), ]
+
+    test_dirs <- c ("inst/tinytest", "tests/testthat")
+    x$dir [x$dir %in% test_dirs] <- "tests"
+
+    # Presume everything else in inst is genuine code:
+    x$dir [grep ("^inst\\/", x$dir)] <- "inst"
+
+    if ("YAML" %in% x$language) {
+        x <- dplyr::filter (x, language != "YAML")
+    }
     xg <- dplyr::group_by (x, dir)
     x <- dplyr::summarise (
         xg,
-        nfiles = sum (nfiles),
-        ncode = sum (ncode),
-        ndoc = sum (ndoc),
-        nempty = sum (nempty),
-        nspaces = sum (nspaces),
-        nchars = sum (nchars),
-        nexpr = stats::median (nexpr)
+        nfiles = sum (nfiles, na.rm = TRUE),
+        ncode = sum (ncode, na.rm = TRUE),
+        ndoc = sum (ndoc, na.rm = TRUE),
+        nempty = sum (nempty, na.rm = TRUE),
+        nspaces = sum (nspaces, na.rm = TRUE),
+        nchars = sum (nchars, na.rm = TRUE),
+        nexpr = stats::median (nexpr, na.rm = TRUE)
     )
     # nexpr is not truly accurate, but acceptable here
 

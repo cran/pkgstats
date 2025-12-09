@@ -14,25 +14,25 @@ options (repos = c (
 ))
 
 ## ----install, eval = FALSE----------------------------------------------------
-#  install.packages ("pkgstats")
+# install.packages ("pkgstats")
 
 ## ----options, eval = FALSE----------------------------------------------------
-#  options (repos = c (
-#      ropenscireviewtools = "https://ropensci-review-tools.r-universe.dev",
-#      CRAN = "https://cloud.r-project.org"
-#  ))
+# options (repos = c (
+#     ropenscireviewtools = "https://ropensci-review-tools.r-universe.dev",
+#     CRAN = "https://cloud.r-project.org"
+# ))
 
 ## ----remotes, eval = FALSE----------------------------------------------------
-#  remotes::install_github ("ropensci-review-tools/pkgstats")
-#  pak::pkg_install ("ropensci-review-tools/pkgstats")
+# remotes::install_github ("ropensci-review-tools/pkgstats")
+# pak::pkg_install ("ropensci-review-tools/pkgstats")
 
 ## ----library, eval = TRUE-----------------------------------------------------
 library (pkgstats)
 
 ## ----ctags-check, eval = FALSE------------------------------------------------
-#  ctags_test ()
-#  #> [1] TRUE
+# ctags_test ()
+# #> [1] TRUE
 
 ## ----unsetenv, eval = FALSE---------------------------------------------------
-#  Sys.unsetenv (c ("GTAGSCONF", "GTAGSLABEL"))
+# Sys.unsetenv (c ("GTAGSCONF", "GTAGSLABEL"))
 

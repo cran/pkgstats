@@ -1,4 +1,3 @@
-
 #' Map calls from within each function to external packages
 #'
 #' @param path Path to package being analysed
@@ -10,7 +9,7 @@ external_call_network <- function (tags_r, path, pkg_name) {
 
     calls <- extract_call_content (tags_r)
 
-    if (length (calls) == 0L) {
+    if (length (calls) == 0L || nrow (calls) == 0L) {
         return (NULL)
     }
 
@@ -101,7 +100,7 @@ extract_call_content <- function (tags_r) {
         }
     })
     calls <- do.call (rbind, calls)
-    calls <- calls [which (!calls [, 2] == ""), ]
+    calls <- calls [which (!calls [, 2] == ""), , drop = FALSE]
 
     if (length (calls) == 0L) {
         return (NULL)
@@ -118,14 +117,14 @@ extract_call_content <- function (tags_r) {
         "NA", "...", "\\", "Inf", ":", ".",
         "function"
     )
-    calls <- calls [which (!calls$call %in% rm_these), ]
-    calls <- calls [which (!grepl ("\\$$|^\"|^\'", calls$call)), ]
+    calls <- calls [which (!calls$call %in% rm_these), , drop = FALSE]
+    calls <- calls [which (!grepl ("\\$$|^\"|^\'", calls$call)), , drop = FALSE]
     calls$tag <- tags_r$tag [calls$tags_line]
     calls$file <- tags_r$file [calls$tags_line]
 
     # rm global variables
     globals <- unique (tags_r$tag [which (tags_r$kind == "globalVar")])
-    calls <- calls [which (!calls$call %in% globals), ]
+    calls <- calls [which (!calls$call %in% globals), , drop = FALSE]
 
     # Finally remove any functionVars (internal variables). This requires
     # matching them to the calling environment, so only those which exist in
@@ -141,7 +140,11 @@ extract_call_content <- function (tags_r) {
         simplify = FALSE
     )
 
-    if (is.list (fn_lines)) {
+    if (length (fn_lines) == 0L) { # There are no function calls
+
+        return (NULL)
+
+    } else if (is.list (fn_lines)) {
 
         fn_lines <- do.call (rbind, fn_lines)
 
@@ -226,13 +229,13 @@ add_base_recommended_pkgs <- function (calls) {
 
     pkg_calls <- lapply (rcmds, function (i) {
 
-        rpath <- file.path (ll [1], i)
-        if (!dir.exists (rpath)) {
+        rpath <- fs::path (ll [1], i)
+        if (!fs::dir_exists (rpath)) {
             return (NULL)
         }
 
-        f <- file.path (rpath, "NAMESPACE")
-        if (!file.exists (f)) {
+        f <- fs::path (rpath, "NAMESPACE")
+        if (!fs::file_exists (f)) {
             return (NULL)
         }
 
@@ -270,12 +273,15 @@ add_base_recommended_pkgs <- function (calls) {
 #' @noRd
 add_other_pkgs_to_calls <- function (calls, path) {
 
-    f <- file.path (path, "NAMESPACE")
-    if (!file.exists (f)) {
+    f <- fs::path (path, "NAMESPACE")
+    if (!fs::file_exists (f)) {
         return (calls)
     }
 
-    n <- parse (text = brio::read_lines (f))
+    n <- tryCatch (
+        parse (text = brio::read_lines (f)),
+        error = function (e) NULL
+    )
     imports <- gsub (
         "^importFrom\\s?\\(|\\)$", "",
         grep ("^importFrom", n, value = TRUE)
@@ -313,10 +319,9 @@ add_other_pkgs_to_calls <- function (calls, path) {
 
     imports_not_called <- imports [imports$pkg %in% pkgs_not_called, ]
 
-    r_files <- normalizePath (list.files (
-        file.path (path, "R"),
-        full.names = TRUE,
-        pattern = "\\.(r|R|q|s|S)$"
+    r_files <- expand_path (fs::dir_ls (
+        fs::path (path, "R"),
+        regexp = "\\.(r|R|q|s|S)$"
     ))
     all_calls <- paste0 (imports_not_called$fn, collapse = "|")
     tokens <- c ("FUNCTION", "SYMBOL_FUNCTION_CALL", "SPECIAL")
@@ -324,6 +329,9 @@ add_other_pkgs_to_calls <- function (calls, path) {
     external_calls <- lapply (r_files, function (i) {
 
         pd <- utils::getParseData (control_parse (i))
+        if (is.null (pd)) {
+            return (NULL)
+        }
         pd <- pd [grep (all_calls, pd$text), ]
         pd <- pd [which (pd$token %in% tokens), ]
 

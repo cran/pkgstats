@@ -1,6 +1,5 @@
-
-test_all <- (identical (Sys.getenv ("MPADGE_LOCAL"), "true") |
-    identical (Sys.getenv ("GITHUB_WORKFLOW"), "test-coverage"))
+test_all <- (identical (Sys.getenv ("MPADGE_LOCAL"), "true") ||
+    identical (Sys.getenv ("GITHUB_JOB"), "test-coverage"))
 
 test_that ("pkgstats", {
 
@@ -37,7 +36,7 @@ test_that ("pkgstats", {
     # The following 2 tests fail on GitHub windows machines for some reason?
     is_windows <- Sys.info () [["sysname"]] == "Windows"
     if (!is_windows) {
-        expect_equal (nrow (s$loc), 3L)
+        expect_equal (nrow (s$loc), 4L)
         expect_true (all (c ("R", "src") %in% s$loc$dir))
     }
 
@@ -95,4 +94,37 @@ test_that ("pkgstats", {
     expect_true (nrow (ext) > 2L)
     expect_true ("stats" %in% ext$package)
     expect_true (length (unique (ext$package)) > 15L)
+})
+
+skip_if (!test_all)
+
+test_that ("pkgstats with tabs", {
+
+    if (!test_all) {
+        Sys.setenv ("PKGSTATS_CRAN_TESTS" = "true")
+    }
+
+    path <- system.file ("extdata", "pkgstats_9.9.tar.gz", package = "pkgstats")
+    path <- extract_tarball (path)
+    flist <- fs::dir_ls (fs::path (path, "R"), type = "file", recurse = TRUE)
+    f <- flist [which (basename (flist) == "loc.R")]
+    x <- readLines (f)
+    x <- gsub ("^\\s{12}", "\\\t\\\t\\\t", x)
+    x <- gsub ("^\\s{8}", "\\\t\\\t", x)
+    x <- gsub ("^\\s{4}", "\\\t", x)
+    writeLines (x, f)
+
+    # message is now produced once per session by readr, but can only be
+    # suppressed by Suggesting yet another package, `tidyselect`.
+    # expect_message (
+    s <- pkgstats (path)
+
+    if (!test_all) {
+        Sys.unsetenv ("PKGSTATS_CRAN_TESTS")
+    }
+
+    expect_s3_class (s$loc, "tbl_df")
+    expect_true (s$loc$ntabs [s$loc$dir == "R"] > 0L)
+
+    fs::dir_delete (path)
 })

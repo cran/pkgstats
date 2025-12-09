@@ -15,15 +15,13 @@ rd_stats <- function (path) {
 
     path <- check_path (path)
 
-    rd_files <- list.files (file.path (path, "man"),
-        pattern = "\\.Rd$",
-        full.names = TRUE
-    )
+    rd_files <- fs::dir_ls (fs::path (path, "man"), regexp = "\\.Rd$")
 
     suppressWarnings (
         params <- lapply (rd_files, get_one_params)
     )
     params <- do.call (rbind, params)
+    params <- params [which (!is.na (params$parameter)), ]
     params_sp <- NULL
     if (!is.null (params)) {
         params_sp <- split (params, f = factor (params$alias))
@@ -47,7 +45,7 @@ rd_stats <- function (path) {
     }, numeric (1))
 
     # excluce imported fns:
-    nmspc <- file.path (path, "NAMESPACE")
+    nmspc <- fs::path (path, "NAMESPACE")
     # some packages have no NAMESPACE files (like adehabitat 1.2-1)
     if (file.exists (nmspc)) {
 
@@ -92,6 +90,10 @@ rd_stats <- function (path) {
 
 rd_is_fn <- function (rd) {
 
+    if (is.null (rd)) {
+        return (FALSE)
+    }
+
     tags <- vapply (rd, function (i) attr (i, "Rd_tag"), character (1))
     tags <- gsub ("\\\\", "", grep ("^\\\\", tags, value = TRUE))
 
@@ -115,10 +117,13 @@ get_one_params <- function (man_file) {
     index <- index1 [which (!index1 %in% index2)]
     x [index] <- gsub ("%.*$", "", x [index])
     ptn <- paste0 ("Rdtemp-", Sys.getpid (), "-")
-    f <- tempfile (pattern = ptn, fileext = ".Rd")
+    f <- fs::file_temp (pattern = ptn, ext = ".Rd")
     brio::write_lines (x, f)
-    rd <- tools::parse_Rd (f)
-    chk <- file.remove (f) # nolint
+    rd <- tryCatch (
+        tools::parse_Rd (f),
+        error = function (e) NULL
+    )
+    chk <- fs::file_delete (f) # nolint
 
     if (!rd_is_fn (rd)) {
         return (res)
@@ -164,15 +169,26 @@ get_one_params <- function (man_file) {
         params <- tryCatch (as.list (parse (text = params)),
             error = function (e) NULL
         )
+
+        eval_one_param_item <- function (p) {
+            nm <- tryCatch (eval (p), error = function (e) NULL)
+            if (is.null (nm)) {
+                nm <- as.character (p)
+            }
+            return (unlist (nm))
+        }
+
         nms <- lapply (params, function (i) {
-            i <- as.list (i)
+            p_i <- as.list (i)
             nm <- NA_character_
             desc <- NA_integer_
-            if (length (i) >= 3) {
-                nm <- unlist (eval (i [[2]]))
-                desc <- unlist (eval (i [[3]]))
+            if (length (p_i) >= 3) {
+                nm <- eval_one_param_item (p_i [[2]])
+                desc <- eval_one_param_item (p_i [[3]])
                 if (is.null (nm)) {
                     nm <- "(NULL)"
+                } else if (length (nm) > 1) {
+                    nm <- gsub ("\\s+", " ", paste0 (nm, collapse = ""))
                 }
             }
             list (
@@ -181,7 +197,7 @@ get_one_params <- function (man_file) {
             )
         })
 
-        par_name <- vapply (nms, function (i) i$par_name, character (1))
+        par_name <- vapply (nms, function (i) i$par_name [1], character (1))
         nchars <- vapply (nms, function (i) i$nchars, integer (1))
 
         res <- data.frame (

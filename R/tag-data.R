@@ -1,4 +1,3 @@
-
 #' use ctags and gtags to parse call data
 #'
 #' @param path Path to local repository
@@ -32,12 +31,11 @@
 #' f <- system.file ("extdata", "pkgstats_9.9.tar.gz", package = "pkgstats")
 #' # have to extract tarball to call function on source code:
 #' path <- extract_tarball (f)
-#' \dontrun{
+#' @examplesIf ctags_test (noerror = TRUE)
 #' tags <- tags_data (path)
-#' }
 tags_data <- function (path, has_tabs = NULL, pkg_name = NULL) {
 
-    chk <- tryCatch (ctags_test (),
+    chk <- tryCatch (ctags_test (noerror = FALSE),
         error = function (e) e
     )
     if (methods::is (chk, "simpleError")) {
@@ -46,12 +44,12 @@ tags_data <- function (path, has_tabs = NULL, pkg_name = NULL) {
 
     if (is.null (has_tabs)) {
         has_tabs <- any (loc_stats (path)$ntabs > 0L)
-    } else if (!is.logical (has_tabs) | length (has_tabs) > 1L) {
+    } else if (!is.logical (has_tabs) || length (has_tabs) > 1L) {
         stop ("has_tabs must either be NULL or a single logical value")
     }
 
     if (is.null (pkg_name)) {
-        desc <- file.path (path, "DESCRIPTION")
+        desc <- fs::path (path, "DESCRIPTION")
         checkmate::assert_file (desc)
         d <- data.frame (read.dcf (desc), stringsAsFactors = FALSE)
         pkg_name <- d [["Package"]]
@@ -71,7 +69,7 @@ tags_data <- function (path, has_tabs = NULL, pkg_name = NULL) {
 
     gtags <- NULL
 
-    if (!is.null (tags_src) | !is.null (tags_inst)) {
+    if (!is.null (tags_src) || !is.null (tags_inst)) {
 
         no_gtags <- withr::with_dir (path, make_gtags ())
 
@@ -104,7 +102,9 @@ tags_data <- function (path, has_tabs = NULL, pkg_name = NULL) {
         }
     }
 
-    fns_r <- tags_r [which (tags_r$kind == "function" & !is.na (tags_r$tag)), ]
+    # Functions defined from namespaces of other packages are tagged as global variables.
+    kinds <- c ("function", "globalVar")
+    fns_r <- tags_r [which (tags_r$kind %in% kinds & !is.na (tags_r$tag)), ]
     fn_vars_r <- tags_r [which (tags_r$kind == "functionVar" &
         !is.na (tags_r$tag)), ]
 
@@ -167,20 +167,16 @@ rm_tabs <- function (d, nspaces = 2) {
     tmpd <- paste0 (sample (c (letters, LETTERS), size = 8, replace = TRUE),
         collapse = ""
     )
-    tmpd <- file.path (tempdir (), tmpd)
-    dir.create (tmpd, recursive = TRUE)
-    chk <- file.copy (d, tmpd, recursive = TRUE) # copies 'd' as sub-dir of tmpd
-    if (any (!chk)) {
+    tmpd <- fs::path (fs::path_temp (), tmpd)
+    fs::dir_create (tmpd, recurse = TRUE)
+    chk <- fs::dir_copy (d, tmpd) # copies 'd' as sub-dir of tmpd
+    if (length (chk) != length (d)) {
         stop ("Unable to copy files from [", d, "] to tempdir()")
     }
 
     sp <- paste0 (rep (" ", nspaces), collapse = "")
 
-    files <- normalizePath (list.files (
-        tmpd,
-        full.names = TRUE,
-        recursive = TRUE
-    ))
+    files <- expand_path (fs::dir_ls (tmpd, recurse = TRUE, type = "file"))
 
     exts <- file_exts ()
     exts$ext <- gsub ("+", "\\+", exts$ext, fixed = TRUE)
@@ -188,18 +184,33 @@ rm_tabs <- function (d, nspaces = 2) {
     exts <- paste0 (exts$ext, "$", collapse = "|")
     files <- files [grep (exts, files)]
     files <- files [which (!grepl ("^Makevars", files))]
+    # also remove pdf and html files
+    index <- which (!grepl ("\\.(pdf|html)$", files, ignore.case = TRUE))
+    files <- files [index]
 
     for (f in files) {
-        x <- suppressWarnings (brio::read_lines (f))
+        x <- tryCatch (
+            suppressWarnings (brio::read_lines (f)),
+            error = function (e) NULL
+        )
+        if (is.null (x)) {
+            next
+        }
+
         has_tabs <- any (grepl ("\\t", x))
         if (has_tabs) {
-            x <- gsub ("^\\t", sp, x)
-            x <- gsub ("\\t", " ", x) # replace non-leading tabs with single
-            brio::write_lines (x, path = f)
+            # The input string from 'brio' above can be invalid and cause
+            # 'gsub' to fail (try on antiword)
+            xt <- tryCatch (gsub ("^\\t", sp, x), error = function (e) x)
+            # And replace non-leading tabs with single
+            xt <- tryCatch (gsub ("\\t", " ", xt), error = function (e) xt)
+            if (!identical (x, xt)) {
+                brio::write_lines (x, path = f)
+            }
         }
     }
 
-    return (normalizePath (tmpd))
+    return (expand_path (tmpd))
 }
 
 #' convert tags_src into same format as the function summary of R code
@@ -253,11 +264,13 @@ count_doclines_src <- function (tags, path) {
         return (tags)
     }
 
-    res <- vapply (seq (nrow (tags)), function (i) {
+    tags$language [which (is.na (tags$language))] <- ""
+
+    res <- vapply (seq_len (nrow (tags)), function (i) {
 
         ndoclines <- 0L
 
-        f <- file.path (path, tags$file [i])
+        f <- fs::path (path, tags$file [i])
         code <- brio::read_lines (f)
         tag_line_start <- tags$start [i]
         # ctags does not tag end line numbers of Rust objects:

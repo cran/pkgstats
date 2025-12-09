@@ -32,11 +32,17 @@ desc_stats <- function (path) {
         stop ("path must be directory containing package source", call. = FALSE)
     }
 
-    desc <- file.path (path, "DESCRIPTION")
+    desc <- fs::path (path, "DESCRIPTION")
     d <- data.frame (
         read.dcf (desc),
         stringsAsFactors = FALSE
     )
+    # The following pkgs have extra guff in version strings:
+    # "X-X.X (version YY/MM/DD)"
+    # gee 4.13-2
+    # gee 4.13-3
+    # nlme 3-1.2
+    version <- gsub ("\\s+.*$", "", d$Version)
     license <- d$License
     urls <- NA_character_
     if ("URL" %in% names (d)) {
@@ -64,7 +70,7 @@ desc_stats <- function (path) {
 
     data.frame (
         package = d$Package,
-        version = d$Version,
+        version = version,
         date = desc_date,
         license = license,
         urls = urls,
@@ -82,7 +88,17 @@ desc_stats <- function (path) {
 desc_authors <- function (d) {
 
     if ("Authors.R" %in% names (d)) {
-        authors <- eval (parse (text = d$Authors.R))
+        authors <- tryCatch (
+            eval (parse (text = d$Authors.R)),
+            error = function (e) NULL
+        )
+        if (is.null (authors)) {
+            # some pkgs fail to parse, like surveillance_1.20.0
+            authors <- lapply (
+                strsplit (d$Authors.R, ")),"),
+                function (i) paste0 (i, ")")
+            )
+        }
         # remove everything before and after square brackets
         authors <- gsub ("^.*\\[|\\].*$", "", authors)
         n_aut <- vapply (

@@ -5,21 +5,21 @@
 #' @return List of statistics and data on function call networks (or object
 #' relationships in other languages). Includes the following components:
 #' \enumerate{
-#'   \item{loc: }{Summary of Lines-of-Code in all package directories}
-#'   \item{vignettes: }{Numbers of vignettes and "demo" files}
-#'   \item{data_stats: }{Statistics of numbers and sizes of package data files}
-#'   \item{desc: }{Summary of contents of 'DESCRIPTION' file}
-#'   \item{translations: }{List of translations into other (human) languages
-#'   (where provides)}
-#'   \item{objects: }{A `data.frame` of all functions in R, and all other
+#'   \item loc: Summary of Lines-of-Code in all package directories
+#'   \item vignettes: Numbers of vignettes and "demo" files
+#'   \item data_stats: Statistics of numbers and sizes of package data files
+#'   \item desc: Summary of contents of 'DESCRIPTION' file
+#'   \item translations: List of translations into other (human) languages
+#'   (where provides)
+#'   \item objects: A `data.frame` of all functions in R, and all other
 #'   objects (functions, classes, structures, global variables, and more) in all
-#'   other languages}
-#'   \item{network: }{A `data.frame` of object references within and between all
+#'   other languages
+#'   \item network: A `data.frame` of object references within and between all
 #'   languages; in R these are function calls, but may be more abstract in other
-#'   languages.}
-#'   \item{external_calls: }{A `data.frame` of all calls make to all functions
+#'   languages.
+#'   \item external_calls: A `data.frame` of all calls make to all functions
 #'   from all other R packages, including base and recommended as well as
-#'   contributed packages.}
+#'   contributed packages.
 #' }
 #'
 #' @family stats
@@ -27,14 +27,11 @@
 #' @examples
 #' # 'path' can be path to a package tarball:
 #' f <- system.file ("extdata", "pkgstats_9.9.tar.gz", package = "pkgstats")
-#' \dontrun{
+#' @examplesIf ctags_test (noerror = TRUE)
 #' s <- pkgstats (f)
-#' }
 #' # or to a source directory:
 #' path <- extract_tarball (f)
-#' \dontrun{
 #' s <- pkgstats (path)
-#' }
 pkgstats <- function (path = ".") {
 
     path <- check_path (path)
@@ -69,6 +66,21 @@ pkgstats <- function (path = ".") {
         fns$num_doclines [index] <- s3$num_doclines [index2]
         fns$param_nchars_mn [index] <- s3$param_nchars_mn [index2]
         fns$param_nchars_md [index] <- s3$param_nchars_md [index2]
+
+        # Get stats for non-exported fns
+        roxy_stats <- roxygen_block_stats (path)
+        roxy_stats <- roxy_stats [which (!roxy_stats$exported), ]
+        roxy_stats <- roxy_stats [which (roxy_stats$fn_name %in% fns$fn_name), ]
+        index <- match (roxy_stats$fn_name, fns$fn_name)
+        par_is_numeric <- vapply (
+            names (roxy_stats),
+            function (i) is.numeric (roxy_stats [[i]]),
+            logical (1L)
+        )
+        var_names <- names (roxy_stats) [which (par_is_numeric)]
+        for (v in var_names) {
+            fns [[v]] [index] <- roxy_stats [[v]]
+        }
     }
 
     # Running 'ctags_test()' on some CRAN machines takes too long (> 10s), so
@@ -83,7 +95,7 @@ pkgstats <- function (path = ".") {
     translations <- get_translations (path)
 
     if (tarball) {
-        chk <- unlink (path, recursive = TRUE)
+        chk <- fs::file_delete (path)
     }
 
     list (
@@ -109,10 +121,9 @@ all_functions <- function (path) {
         return (all_functions_dummy ())
     }
 
-    r_files <- normalizePath (list.files (
-        file.path (path, "R"),
-        full.names = TRUE,
-        pattern = "\\.(r|R|q|s|S)$"
+    r_files <- expand_path (fs::dir_ls (
+        fs::path (path, "R"),
+        regexp = "\\.(r|R|q|s|S)$"
     ))
 
     if (length (r_files) == 0L) {
@@ -144,12 +155,21 @@ all_functions <- function (path) {
         )
         npars <- vapply (
             p, function (i) {
+                dummy <- rep (NA_integer_, 2L)
+                if (is.symbol (as.list (i) [[3]])) {
+                    return (dummy)
+                }
                 call_i <- as.list (i) [[3]]
                 if (length (call_i) < 2) { # not a fn
-                    return (rep (NA_integer_, 2))
+                    return (dummy)
                 }
                 c2 <- call_i [[2]]
-                c (length (c2), "..." %in% names (c2)) },
+                # if the call has an empty field, c2 won't necessary exist
+                nms <- tryCatch (names (c2), error = function (e) NULL)
+                if (is.null (nms)) {
+                    return (dummy)
+                }
+                c (length (c2), "..." %in% nms) },
             integer (2)
         )
 
@@ -164,13 +184,12 @@ all_functions <- function (path) {
     }
 
     ret <- do.call (rbind, lapply (r_files, eval1))
+    if (length (ret) == 0L) {
+        return (all_functions_dummy ())
+    }
     if (nrow (ret) > 0L) {
         # append "R" directory to file names:
-        ret$file_name <- paste0 (
-            "R",
-            .Platform$file.sep,
-            ret$file_name
-        )
+        ret$file_name <- as.character (fs::path ("R", ret$file_name))
     }
 
     return (ret)

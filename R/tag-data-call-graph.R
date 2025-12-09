@@ -6,12 +6,17 @@ fn_var_call_graph_r <- function (fns, fn_vars, path) {
 
         fns_f <- fns [fns$file == f, ]
         fns_f <- fns_f [order (fns_f$start), c ("tag", "start", "end")]
+        fns_f <- fns_f [which (!is.na (fns_f$start) & !is.na (fns_f$end)), ]
+        if (nrow (fns_f) < 1L) {
+            next
+        }
+
         fns_index <- lapply (seq (nrow (fns_f)), function (i) {
             cbind (i, seq (fns_f$start [i], fns_f$end [i]))
         })
         fns_index <- do.call (rbind, fns_index)
 
-        f_full <- fs::path_tidy (normalizePath (file.path (path, f)))
+        f_full <- expand_path (fs::path (path, f))
 
         p <- control_parse (file = f_full)
         if (methods::is (p, "simpleError")) {
@@ -65,7 +70,7 @@ add_igraph_stats <- function (g, directed = TRUE) {
         directed = directed
     )
 
-    cl <- igraph::clusters (g_igr)
+    cl <- igraph::components (g_igr)
     index <- match (g$from, names (cl$membership))
     if (directed) {
         nms <- c ("cluster_dir", "centrality_dir")

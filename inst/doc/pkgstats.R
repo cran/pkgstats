@@ -15,7 +15,7 @@ options (repos = c (
 library (pkgstats)
 
 ## ----main-pkgstats-call, eval = FALSE-----------------------------------------
-#  s <- pkgstats () # run in root directory of `pkgstats` source
+# s <- pkgstats () # run in root directory of `pkgstats` source
 
 ## ----pkgstats-fakey, echo = FALSE---------------------------------------------
 # These data all have to be faked because they can't be generated on CRAN
@@ -96,10 +96,10 @@ s [!names (s) %in% c ("objects", "network", "external_calls")]
 s$loc
 
 ## ----nested1, eval = FALSE----------------------------------------------------
-#  x <- myfn ()
+# x <- myfn ()
 
 ## ----nested4, eval = FALSE----------------------------------------------------
-#  x <- function () { return (myfn ()) }
+# x <- function () { return (myfn ()) }
 
 ## ----rel-space----------------------------------------------------------------
 index <- which (s$loc$dir %in% c ("R", "src")) # consider source code only
@@ -232,8 +232,8 @@ s$external_calls <- data.frame (
 head (s$external_calls)
 
 ## ----ext-call-summary, eval = FALSE-------------------------------------------
-#  s_summ <- pkgstats_summary (s)
-#  print (s_summ$external_calls)
+# s_summ <- pkgstats_summary (s)
+# print (s_summ$external_calls)
 
 ## ----ext-call-sumamry-fakey, echo = FALSE-------------------------------------
 s_summ <- list (external_calls = paste0 (c (

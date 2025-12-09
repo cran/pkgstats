@@ -3,20 +3,20 @@
 #' @noRd
 get_ctags <- function (d = "R", has_tabs) {
 
-    if (!dir.exists (file.path (getwd (), d))) {
+    if (!fs::dir_exists (fs::path (fs::path_wd (), d))) {
         return (NULL)
     }
 
-    path_dir <- file.path (getwd (), d)
+    path_dir <- expand_path (fs::path (fs::path_wd (), d))
 
     # tab-characters muck up parsing of tag content so have to be removed.
     # This requires modifying the code, so the whole directory is copied to
     # tempdir() and the new path returned. `path_sub` in the following is the
     # path to substitute out of file names given by ctags
-    wd <- path_sub <- getwd ()
+    wd <- path_sub <- fs::path_wd ()
     if (has_tabs) {
         path_sub <- path_dir <- rm_tabs (path_dir)
-        path_dir <- fs::path_tidy (normalizePath (file.path (path_dir, d)))
+        path_dir <- expand_path (fs::path (path_dir, d))
         wd <- setwd (path_dir)
         on.exit ({
             unlink (path_sub, recursive = TRUE)
@@ -42,10 +42,12 @@ get_ctags <- function (d = "R", has_tabs) {
         fields <- "eFKlnN"
     } else if (d %in% c ("src", "inst")) {
         fields <- "eFKlnN"
+    } else { # Generic for adapation to other non-R-pkg dirs
+        fields <- "eFKlnN"
     }
 
     ptn <- paste0 ("ctags-", Sys.getpid (), "-")
-    f <- tempfile (pattern = ptn, fileext = ".txt")
+    f <- fs::file_temp (pattern = ptn, ext = ".txt")
     args <- c (
         "-R",
         paste0 ("--fields=", fields),
@@ -81,25 +83,32 @@ get_ctags <- function (d = "R", has_tabs) {
         tokenizer = readr::tokenizer_tsv (),
         n_max = 100L
     )
-    if (!any (n_flds == length (cnames))) {
+    stop_here <- !any (n_flds == length (cnames)) &&
+        any (n_flds < length (cnames))
+    # Extra fields thus far have only had them as terminal fields, which get
+    # removed anyway.
+    if (stop_here) {
         chk <- rm_file_no_err (f)
         return (NULL)
     }
 
     suppressWarnings (
-        tags <- readr::read_tsv (
-            f,
-            col_names = cnames,
-            col_types = ctypes,
-            col_select = cnames,
-            progress = FALSE,
-            lazy = FALSE
+        tags <- tryCatch (
+            readr::read_tsv (
+                f,
+                col_names = cnames,
+                col_types = ctypes,
+                col_select = cnames,
+                progress = FALSE,
+                lazy = FALSE
+            ),
+            error = function (e) NULL
         )
     )
 
     chk <- rm_file_no_err (f)
 
-    if (nrow (tags) == 0) {
+    if (is.null (tags) || nrow (tags) == 0L) {
         return (NULL)
     }
 
@@ -125,8 +134,10 @@ get_ctags <- function (d = "R", has_tabs) {
 
     files <- fs::path_split (tags$file)
     len_path_sub <- length (fs::path_split (path_sub) [[1]])
-    tags$file <- vapply (
-        files, function (i) {
+    index <- which (vapply (files, length, integer (1L)) >= len_path_sub)
+    tags$file <- NA_character_
+    tags$file [index] <- vapply (
+        files [index], function (i) {
             do.call (file.path, as.list (i [-seq (len_path_sub)]))
         },
         character (1)

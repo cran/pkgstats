@@ -5,21 +5,38 @@
 #' and also checks the GNU global installation.
 #' @param quiet If `TRUE`, display on screen whether or not 'ctags' is correctly
 #' installed.
+#' @param noerror If `FALSE` (default), this function will error if either
+#' 'ctags' or 'gtags' are not installed. If `TRUE`, the function will complete
+#' without erroring, and issue appropriate messages regarding required but
+#' non-installed system libraries.
 #' @return 'TRUE' or 'FALSE' respectively indicating whether or not 'ctags' is
 #' correctly installed.
 #' @family tags
 #' @examples
-#' \dontrun{
-#' ctags_test ()
+#' # The function errors if not ctags or gtags found.
+#' \donttest{
+#' ctags_okay <- !is.null (tryCatch (
+#'     ctags_test (),
+#'     error = function (e) NULL
+#' ))
 #' }
 #' @export
-ctags_test <- function (quiet = TRUE) {
-
+ctags_test <- function (quiet = TRUE, noerror = FALSE) {
     if (!has_ctags ()) {
-        stop ("No ctags installation found.", call. = FALSE)
+        if (noerror) {
+            message ("No ctags installation found.")
+            return (FALSE)
+        } else {
+            stop ("No ctags installation found.", call. = FALSE)
+        }
     }
     if (!has_gtags ()) {
-        stop ("No GNU global installation found.", call. = FALSE)
+        if (noerror) {
+            message ("No GNU global installation found.")
+            return (FALSE)
+        } else {
+            stop ("No GNU global installation found.", call. = FALSE)
+        }
     }
 
     f_in <- tempfile (fileext = ".R")
@@ -39,7 +56,7 @@ ctags_test <- function (quiet = TRUE) {
     )
     brio::write_lines (x, path = f_in)
 
-    f_out <- tempfile (fileext = ".txt")
+    f_out <- fs::file_temp (ext = ".txt")
     cmd <- paste0 ("ctags --sort=no --fields=+KZ -f ", f_out, " ", f_in)
     system (cmd)
 
@@ -69,7 +86,7 @@ ctags_test <- function (quiet = TRUE) {
         )
     )
 
-    file.remove (c (f_in, f_out))
+    fs::file_delete (c (f_in, f_out))
 
     expected_kinds <- c (
         "globalVar",
@@ -90,39 +107,39 @@ ctags_test <- function (quiet = TRUE) {
         ctags_check <- all (tags$kind == expected_kinds)
     }
 
-    td <- file.path (tempdir (), "pkgstats-gtags-test")
-    if (dir.exists (td)) {
+    td <- fs::path (fs::path_temp (), "pkgstats-gtags-test")
+
+    if (fs::dir_exists (td)) {
         gtags_check <- TRUE
     } else {
         f <- system.file ("extdata", "pkgstats_9.9.tar.gz", package = "pkgstats")
+
         pkgstats_path <- extract_tarball (f)
-        if (dir.exists (td)) {
-            chk <- unlink (td, recursive = TRUE)
+        if (fs::dir_exists (td)) {
+            fs::dir_delete (td)
         }
-        if (file.exists (td)) {
-            chk <- file.remove (td)
+        if (fs::file_exists (td)) {
+            chk <- fs::file_delete (td)
         }
-        dir.create (td)
-        chk <- file.copy (pkgstats_path, td, recursive = TRUE)
+        fs::dir_create (td, recurse = TRUE)
+        chk <- fs::dir_copy (pkgstats_path, td)
         # unlink (pkgstats_path, recursive = TRUE) # done in unload
-        gtags_test <- withr::with_envvar (
-            c ("GTAGSLABEL" = "new-ctags"),
-            withr::with_dir (
-                file.path (td, "pkgstats"),
-                system2 ("gtags",
-                    stdout = TRUE, stderr = TRUE
-                )
-            )
-        )
+        if (.Platform$OS.type == "windows") {
+            cmd <- "set GTAGS_LABEL=new-ctags; gtags"
+            gtags_test <- withr::with_dir (fs::path (td, "pkgstats"), shell (cmd, intern = TRUE))
+        } else {
+            cmd <- "export GTAGS_LABEL=new-ctags; gtags"
+            gtags_test <- withr::with_dir (fs::path (td, "pkgstats"), system (cmd, intern = TRUE))
+        }
         gtags_check <- length (gtags_test) == 0L
         if (!gtags_check) {
             gtags_check <- any (grepl ("error", gtags_test, ignore.case = TRUE))
         }
 
-        unlink (td, recursive = TRUE)
+        fs::file_delete (td)
     }
 
-    check <- ctags_check & gtags_check
+    check <- ctags_check && gtags_check
 
     if (!check) {
         if (!quiet) {
@@ -153,7 +170,7 @@ has_ctags <- function () {
 #' @noRd
 which_ctags <- function () {
 
-    f <- tempfile (pattern = "ctags-out-", fileext = ".txt")
+    f <- fs::file_temp (pattern = "ctags-out-", ext = ".txt")
     sys::exec_wait ("ctags", args = "--version", std_out = f)
     which_ctags <- brio::read_lines (f)
     regmatches (which_ctags [1], regexpr ("\\w+", which_ctags [1]))

@@ -1,4 +1,3 @@
-
 #' Extract names of all functions for one R package
 #'
 #' @inheritParams pkgstats
@@ -62,13 +61,15 @@ pkgstats_fn_names <- function (path) {
     )
 
     fns <- fns [which (!fns %in% imps)]
-    fns <- noquote (fns)
+    if (!is.null (fns)) {
+        fns <- noquote (fns)
+    }
 
     pkg <- get_pkg_name_version (desc_path)
 
     data.frame (
-        package = pkg [1],
-        version = pkg [2],
+        package = rep (pkg [1], length (fns)),
+        version = rep (pkg [2], length (fns)),
         fn_name = gsub ("^\\\"|\\\"$", "", fns),
         stringsAsFactors = FALSE
     )
@@ -82,7 +83,6 @@ get_namespace_contents <- function (path) {
 
         flist <- utils::untar (
             path,
-            exdir = tempdir (),
             list = TRUE,
             tar = "internal"
         )
@@ -97,7 +97,7 @@ get_namespace_contents <- function (path) {
         chk <- utils::untar (
             path,
             files = nmsp,
-            exdir = tempdir ()
+            exdir = fs::path_temp ()
         )
 
         if (chk != 0) {
@@ -106,29 +106,32 @@ get_namespace_contents <- function (path) {
             )
         }
 
-        nmsp <- file.path (tempdir (), nmsp)
+        nmsp <- fs::path (fs::path_temp (), nmsp)
+
+        on.exit ({
+            fs::dir_delete (fs::path_dir (nmsp))
+        })
 
     } else {
 
-        nmsp <- list.files (
+        nmsp <- fs::dir_ls (
             path,
-            recursive = TRUE,
-            full.names = TRUE,
-            pattern = "NAMESPACE"
+            recurse = TRUE,
+            regexp = "NAMESPACE"
         )
-        nmsp <- normalizePath (nmsp [1])
+        nmsp <- expand_path (nmsp [1])
 
     }
 
     # See R source in src/library/base/R/namespace.R for reference, especially
     # the `parseNamespaceFile()` function.
-    nmsp <- parse (
+    nmsp_parsed <- parse (
         nmsp,
         keep.source = FALSE,
         srcfile = NULL
     )
 
-    return (nmsp)
+    return (nmsp_parsed)
 }
 
 get_desc_path <- function (path) {
@@ -139,7 +142,7 @@ get_desc_path <- function (path) {
 
         flist <- utils::untar (
             path,
-            exdir = tempdir (),
+            exdir = fs::path_temp (),
             list = TRUE,
             tar = "internal"
         )
@@ -148,19 +151,18 @@ get_desc_path <- function (path) {
         chk <- utils::untar (
             path,
             files = desc,
-            exdir = tempdir ()
+            exdir = fs::path_temp ()
         )
-        desc <- normalizePath (file.path (tempdir (), desc))
+        desc <- expand_path (fs::path (fs::path_temp (), desc))
 
     } else {
 
-        desc <- list.files (
+        desc <- fs::dir_ls (
             path,
-            recursive = TRUE,
-            full.names = TRUE,
-            pattern = "DESCRIPTION"
+            recurse = TRUE,
+            regexp = "DESCRIPTION"
         )
-        desc <- normalizePath (desc [1])
+        desc <- expand_path (desc [1])
     }
 
     return (desc)
@@ -217,7 +219,7 @@ aliases_from_rd <- function (path, nmsp) {
 
         flist <- utils::untar (
             path,
-            exdir = tempdir (),
+            exdir = fs::path_temp (),
             list = TRUE,
             tar = "internal"
         )
@@ -227,22 +229,24 @@ aliases_from_rd <- function (path, nmsp) {
         chk <- utils::untar (
             path,
             files = rd,
-            exdir = tempdir ()
+            exdir = fs::path_temp ()
         )
+        if (chk != 0) {
+            return (NULL)
+        }
 
-        flist <- file.path (tempdir (), rd)
+        flist <- fs::path (fs::path_temp (), rd)
 
     } else {
 
-        flist <- list.files (
+        flist <- fs::dir_ls (
             path,
-            pattern = "\\.Rd$",
-            recursive = TRUE,
-            full.names = TRUE
+            regexp = "\\.Rd$",
+            recurse = TRUE
         )
     }
 
-    flist <- normalizePath (flist)
+    flist <- expand_path (flist)
     # only extract Rd files from man directory:
     is_man <- vapply (
         fs::path_split (flist),
@@ -252,10 +256,6 @@ aliases_from_rd <- function (path, nmsp) {
         logical (1L)
     )
     flist <- flist [which (is_man)]
-
-    if (chk != 0) {
-        return (NULL)
-    }
 
     nms <- lapply (flist, function (i) {
 

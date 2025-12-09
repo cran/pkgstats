@@ -23,7 +23,10 @@ Download latest version of 'pkgstats' data
 }
 \seealso{
 Other archive: 
+\code{\link{pkgstats_cran_current_from_full}()},
 \code{\link{pkgstats_fns_from_archive}()},
-\code{\link{pkgstats_from_archive}()}
+\code{\link{pkgstats_fns_update}()},
+\code{\link{pkgstats_from_archive}()},
+\code{\link{pkgstats_update}()}
 }
 \concept{archive}

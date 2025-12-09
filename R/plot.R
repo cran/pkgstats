@@ -1,4 +1,3 @@
-
 #' Plot interactive \pkg{visNetwork} visualisation of object-relationship
 #' network of package.
 #'
@@ -16,14 +15,17 @@
 #' @family output
 #' @examples
 #' f <- system.file ("extdata", "pkgstats_9.9.tar.gz", package = "pkgstats")
-#' \dontrun{
+#' \donttest{
 #' p <- pkgstats (f)
 #' plot_network (p)
 #' }
 #' @export
 plot_network <- function (s, plot = TRUE, vis_save = NULL) {
 
-    requireNamespace ("visNetwork")
+    # suppress no visible binding notes:
+    kind <- NULL
+
+    requireNamespace ("visNetwork", quietly = TRUE)
 
     if (!all (c (
         "loc", "vignettes", "data_stats", "desc",
@@ -73,7 +75,8 @@ plot_network <- function (s, plot = TRUE, vis_save = NULL) {
         edges <- dplyr::count (edges, from, to, language, centrality)
         edges <- edges [which (!is.na (edges$from)), ]
 
-        obj <- s$objects [which (s$objects$kind == "function"), ]
+        obj <- dplyr::filter (s$objects, kind == "function")
+        obj <- dplyr::filter (obj, !grepl ("^anonFunc", obj$fn_name))
         obj <- obj [which (!duplicated (obj$fn_name)), ]
         nodes <- data.frame (
             id = obj$fn_name,
@@ -108,7 +111,7 @@ plot_network <- function (s, plot = TRUE, vis_save = NULL) {
 
     vn <- visNetwork::visLegend (vn, main = "Language")
 
-    if (plot | !is.null (vis_save)) {
+    if (plot || !is.null (vis_save)) {
 
         if (!is.null (vis_save)) {
             if (!is.character (vis_save)) {
@@ -117,24 +120,17 @@ plot_network <- function (s, plot = TRUE, vis_save = NULL) {
             if (length (vis_save) > 1) {
                 stop ("vis_save must be a single character")
             }
-            if (!dir.exists (dirname (vis_save))) {
+            if (!fs::dir_exists (fs::path_dir (vis_save))) {
                 stop (
-                    "directory [", dirname (vis_save),
+                    "directory [", fs::path_dir (vis_save),
                     "] does not exist"
                 )
             }
 
-            vis_save <- paste0 (
-                tools::file_path_sans_ext (vis_save),
-                ".html"
-            )
-            path <- strsplit (vis_save, .Platform$file.sep) [[1]]
-            # can't use normalizePath because that fails if path does not exist
-            path <- paste0 (path [-length (path)],
-                collapse = .Platform$file.sep
-            )
-            if (!file.exists (path)) {
-                dir.create (path, recursive = TRUE)
+            vis_save <- fs::path_ext_set (vis_save, "html")
+            path <- fs::path_dir (vis_save)
+            if (!fs::dir_exists (path)) {
+                fs::dir_create (path, recurse = TRUE)
             }
             visNetwork::visSave (vn, vis_save, selfcontained = TRUE)
 
