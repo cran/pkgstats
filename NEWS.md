@@ -1,3 +1,12 @@
+0.2.2
+===================
+
+## Minor changes
+
+- Improved documentation line counting for R source files (#81, #97)
+- Detect and parse Quarto vignettes (#95)
+- Better handling of temporary directories in archive extraction (#93)
+
 0.2.1
 ===================
 

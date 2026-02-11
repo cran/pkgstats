@@ -58,6 +58,7 @@ tags_data <- function (path, has_tabs = NULL, pkg_name = NULL) {
     kind <- start <- NULL # no visible binding messages
 
     tags_r <- withr::with_dir (path, get_ctags ("R", has_tabs))
+    tags_r <- count_doclines_r (tags_r, path)
 
     external_calls <- external_call_network (tags_r, path, pkg_name)
 
@@ -123,10 +124,6 @@ tags_data <- function (path, has_tabs = NULL, pkg_name = NULL) {
         network <- add_igraph_stats (network, directed = TRUE)
         network <- add_igraph_stats (network, directed = FALSE)
         network$line2 <- NULL
-    }
-
-    if (!is.null (tags_r)) {
-        tags_r$doclines <- NA_integer_
     }
 
     return (list (
@@ -251,6 +248,49 @@ src_objects <- function (tags) {
     return (res)
 }
 
+#' Count non-roxygen documentation lines in R files
+#' @noRd
+count_doclines_r <- function (tags, path) {
+
+    flist <- unique (tags$file)
+    cmt_lines <- lapply (flist, function (f) {
+        code <- brio::read_lines (fs::path (path, f))
+        grep ("(\\s*)\\#", code)
+    })
+    names (cmt_lines) <- flist
+
+    tags$doclines <- vapply (seq_len (nrow (tags)), function (i) {
+        n <- 0L
+        if (is.na (tags$kind [i]) || !tags$kind [i] == "function") {
+            return (n)
+        }
+        if (is.na (tags$start [i]) || is.na (tags$end [i])) {
+            return (n)
+        }
+        if (tags$end [i] > tags$start [i]) {
+            doclines <- cmt_lines [[match (tags$file [i], names (cmt_lines))]]
+            doclines <- doclines [which (doclines < tags$start [i])]
+            dd <- which (diff (doclines) > 1)
+            if (length (dd) > 0L) {
+                index <- seq (max (dd) + 1L, length (doclines))
+                doclines <- doclines [index]
+            }
+            tags_file <- tags [which (tags$file == tags$file [i]), ]
+            index <- which (tags_file$end < tags$start [i])
+            if (length (index) > 0L) {
+                prev_code <- max (tags_file$end [index])
+                if (length (prev_code) > 0L) {
+                    doclines <- doclines [which (doclines > prev_code)]
+                }
+            }
+            n <- length (doclines)
+        }
+        return (n)
+    }, integer (1L))
+
+    return (tags)
+}
+
 #' Count documentation lines in src files.
 #'
 #' Currently only implemented for C and C++
@@ -266,15 +306,44 @@ count_doclines_src <- function (tags, path) {
 
     tags$language [which (is.na (tags$language))] <- ""
 
+    files <- unique (tags$file)
+    langs <- gsub ("^language\\:", "", tags$language [match (files, tags$file)])
+    doclines <- apply (cbind (files, langs), 1, function (i) {
+
+        f <- fs::path (path, i [1])
+        code <- brio::read_lines (f)
+
+        exts <- file_exts ()
+        ext_i <- exts [match (i [2], exts$type), ]
+
+        out <- grep (ext_i$cmt, code)
+        if (nzchar (ext_i$cmt_open) && !is.na (ext_i$cmt_open)) {
+            cmt_open <- grep (ext_i$cmt_open, code)
+            cmt_close <- grep (ext_i$cmt_close, code)
+            if (length (cmt_open) == length (cmt_close)) {
+                index <- cbind (cmt_open, cmt_close)
+                block_cmts <- apply (index, 1, function (j) {
+                    seq (j [1], j [2])
+                })
+                out <- c (out, unlist (block_cmts))
+            }
+        }
+        return (sort (unique (out)))
+    })
+    names (doclines) <- files
+
     res <- vapply (seq_len (nrow (tags)), function (i) {
 
         ndoclines <- 0L
+        if (is.na (tags$start [i])) {
+            return (ndoclines)
+        }
 
-        f <- fs::path (path, tags$file [i])
-        code <- brio::read_lines (f)
-        tag_line_start <- tags$start [i]
         # ctags does not tag end line numbers of Rust objects:
         if (tags$language [i] == "language:Rust") {
+            f <- fs::path (path, tags$file [i])
+            code <- brio::read_lines (f)
+            tag_line_start <- tags$start [i]
             all_ends <- grep ("^\\}", code)
             prev_end <- 1L
             if (any (all_ends < tag_line_start)) {
@@ -283,35 +352,22 @@ count_doclines_src <- function (tags, path) {
             not_code <- code [seq (prev_end + 1L, tag_line_start - 1L)]
             ndoclines <- length (grep ("^\\s*\\/\\/", not_code))
         } else {
-            all_line_nums <- tags [
+
+            file_tags <- tags [
                 tags$file == tags$file [i],
                 c ("start", "end")
             ]
-            all_line_nums <- all_line_nums [
-                all_line_nums$end < tag_line_start,
-            ]
-            all_line_nums <- all_line_nums [
-                which (!is.na (all_line_nums$start) &
-                    !is.na (all_line_nums$end)),
-            ]
-            if (nrow (all_line_nums) > 0L) {
-                tag_not_code <- seq (
-                    max (all_line_nums$end, na.rm = TRUE) + 1,
-                    tag_line_start - 1
-                )
-                not_code <- code [tag_not_code]
-
-                this_lang <- gsub ("^language\\:", "", tags$language [i])
-                exts <- file_exts ()
-                ext_i <- exts [match (this_lang, exts$type), ]
-                ndoclines <- length (grep (ext_i$cmt, not_code))
-                if (ndoclines == 0L & nzchar (ext_i$cmt_open)) {
-                    cmt_open <- grep (ext_i$cmt_open, not_code)
-                    cmt_close <- grep (ext_i$cmt_close, not_code)
-                    if (length (cmt_open) > 0L & length (cmt_close) > 0L) {
-                        ndoclines <- max (cmt_close, na.rm = TRUE) -
-                            min (cmt_open, na.rm = TRUE)
-                    }
+            file_tags <- file_tags [which (!is.na (file_tags$end)), ]
+            index <- which (file_tags$end < tags$start [i])
+            if (length (index) > 0) {
+                prev_code <- max (file_tags$end [index], na.rm = TRUE)
+                index <- which (names (doclines) == tags$file [i])
+                doclines_f <- doclines [[index]]
+                if (length (doclines_f) > 0L) {
+                    index <- which (
+                        doclines_f < tags$start [i] & doclines_f > prev_code
+                    )
+                    ndoclines <- length (index)
                 }
             }
         }
