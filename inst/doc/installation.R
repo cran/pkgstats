@@ -26,6 +26,10 @@ options (repos = c (
 # remotes::install_github ("ropensci-review-tools/pkgstats")
 # pak::pkg_install ("ropensci-review-tools/pkgstats")
 
+## ----remotes-elsewhere, eval = FALSE------------------------------------------
+# remotes::install_git ("https://codeberg.org/ropensci-review-tools/pkgstats")
+# remotes::install_git ("https://codefloe.com/ropensci-review-tools/pkgstats")
+
 ## ----library, eval = TRUE-----------------------------------------------------
 library (pkgstats)
 

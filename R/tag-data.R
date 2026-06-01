@@ -58,12 +58,28 @@ tags_data <- function (path, has_tabs = NULL, pkg_name = NULL) {
     kind <- start <- NULL # no visible binding messages
 
     tags_r <- withr::with_dir (path, get_ctags ("R", has_tabs))
-    tags_r <- count_doclines_r (tags_r, path)
+    if (!is.null (tags_r)) {
+        tags_r <- count_doclines_r (tags_r, path)
+    }
 
     external_calls <- external_call_network (tags_r, path, pkg_name)
 
     tags_src <- withr::with_dir (path, get_ctags ("src", has_tabs))
     tags_inst <- withr::with_dir (path, get_ctags ("inst", has_tabs))
+
+    extra_paths <- extra_manifest_paths (path)
+    if (length (extra_paths) > 0L) {
+        path_base <- fs::path_common (c (path, extra_paths))
+        extra_paths_rel <- fs::path_rel (extra_paths, path_base)
+        extra_tags_src <- lapply (seq_along (extra_paths), function (i) {
+            extra_tags <- withr::with_dir (path_base, get_ctags (extra_paths_rel [i], has_tabs))
+            path_full <- fs::path (path_base, extra_tags$file)
+            extra_tags$file <- fs::path_rel (path_full, path)
+            return (extra_tags)
+        })
+        extra_tags_src <- do.call (rbind, extra_tags_src)
+        tags_src <- rbind (tags_src, extra_tags_src)
+    }
 
     tags_src <- count_doclines_src (tags_src, path)
     tags_inst <- count_doclines_src (tags_inst, path)
@@ -77,6 +93,14 @@ tags_data <- function (path, has_tabs = NULL, pkg_name = NULL) {
         # gtags does not parse R code, so may return NULL if there is no code in
         # other languages
         gtags <- withr::with_dir (path, get_gtags ())
+        if (length (extra_paths) > 0) {
+            gtags_extra <- lapply (extra_paths, function (p) {
+                withr::with_dir (p, {
+                    make_gtags ()
+                    get_gtags ()
+                })
+            })
+        }
 
         ctags <- dplyr::arrange (rbind (tags_src, tags_inst), file, start)
         ctags <- dplyr::filter (ctags, kind %in%
@@ -330,50 +354,56 @@ count_doclines_src <- function (tags, path) {
         }
         return (sort (unique (out)))
     })
-    names (doclines) <- files
+    if (length (doclines) > 0L) {
+        names (doclines) <- files
+    }
 
-    res <- vapply (seq_len (nrow (tags)), function (i) {
+    if (length (doclines) == 0L) {
+        res <- rep (0L, nrow (tags))
+    } else {
+        res <- vapply (seq_len (nrow (tags)), function (i) {
 
-        ndoclines <- 0L
-        if (is.na (tags$start [i])) {
-            return (ndoclines)
-        }
-
-        # ctags does not tag end line numbers of Rust objects:
-        if (tags$language [i] == "language:Rust") {
-            f <- fs::path (path, tags$file [i])
-            code <- brio::read_lines (f)
-            tag_line_start <- tags$start [i]
-            all_ends <- grep ("^\\}", code)
-            prev_end <- 1L
-            if (any (all_ends < tag_line_start)) {
-                prev_end <- max (all_ends [which (all_ends < tag_line_start)])
+            ndoclines <- 0L
+            if (is.na (tags$start [i])) {
+                return (ndoclines)
             }
-            not_code <- code [seq (prev_end + 1L, tag_line_start - 1L)]
-            ndoclines <- length (grep ("^\\s*\\/\\/", not_code))
-        } else {
 
-            file_tags <- tags [
-                tags$file == tags$file [i],
-                c ("start", "end")
-            ]
-            file_tags <- file_tags [which (!is.na (file_tags$end)), ]
-            index <- which (file_tags$end < tags$start [i])
-            if (length (index) > 0) {
-                prev_code <- max (file_tags$end [index], na.rm = TRUE)
-                index <- which (names (doclines) == tags$file [i])
-                doclines_f <- doclines [[index]]
-                if (length (doclines_f) > 0L) {
-                    index <- which (
-                        doclines_f < tags$start [i] & doclines_f > prev_code
-                    )
-                    ndoclines <- length (index)
+            # ctags does not tag end line numbers of Rust objects:
+            if (tags$language [i] == "language:Rust") {
+                f <- fs::path (path, tags$file [i])
+                code <- brio::read_lines (f)
+                tag_line_start <- tags$start [i]
+                all_ends <- grep ("^\\}", code)
+                prev_end <- 1L
+                if (any (all_ends < tag_line_start)) {
+                    prev_end <- max (all_ends [which (all_ends < tag_line_start)])
+                }
+                not_code <- code [seq (prev_end + 1L, tag_line_start - 1L)]
+                ndoclines <- length (grep ("^\\s*\\/\\/", not_code))
+            } else {
+
+                file_tags <- tags [
+                    tags$file == tags$file [i],
+                    c ("start", "end")
+                ]
+                file_tags <- file_tags [which (!is.na (file_tags$end)), ]
+                index <- which (file_tags$end < tags$start [i])
+                if (length (index) > 0) {
+                    prev_code <- max (file_tags$end [index], na.rm = TRUE)
+                    index <- which (names (doclines) == tags$file [i])
+                    doclines_f <- doclines [[index]]
+                    if (length (doclines_f) > 0L) {
+                        index <- which (
+                            doclines_f < tags$start [i] & doclines_f > prev_code
+                        )
+                        ndoclines <- length (index)
+                    }
                 }
             }
-        }
 
-        return (ndoclines)
-    }, integer (1L))
+            return (ndoclines)
+        }, integer (1L))
+    }
 
     tags$doclines <- res
 
