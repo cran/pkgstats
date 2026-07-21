@@ -22,21 +22,15 @@
 #' }
 #' @export
 ctags_test <- function (quiet = TRUE, noerror = FALSE) {
-    if (!has_ctags ()) {
-        if (noerror) {
-            message ("No ctags installation found.")
-            return (FALSE)
-        } else {
-            stop ("No ctags installation found.", call. = FALSE)
-        }
+
+    msg <- "No ctags installation found."
+    if (!has_ctags () && !ctags_test_check (msg, noerror = noerror)) {
+        return (FALSE)
     }
-    if (!has_gtags ()) {
-        if (noerror) {
-            message ("No GNU global installation found.")
-            return (FALSE)
-        } else {
-            stop ("No GNU global installation found.", call. = FALSE)
-        }
+
+    msg <- "No GNU global installation found."
+    if (!has_gtags () && !ctags_test_check (msg, noerror = noerror)) {
+        return (FALSE)
     }
 
     f_in <- tempfile (fileext = ".R")
@@ -58,7 +52,20 @@ ctags_test <- function (quiet = TRUE, noerror = FALSE) {
 
     f_out <- fs::file_temp (ext = ".txt")
     cmd <- paste0 ("ctags --sort=no --fields=+KZ -f ", f_out, " ", f_in)
-    system (cmd)
+    chk <- tryCatch (
+        system (cmd),
+        error = function (e) 127L
+    )
+
+    if (chk > 0L || !fs::file_exists (f_out)) {
+        msg <- paste0 (
+            "Existing ctags installation is incomplete; ",
+            "this package requires 'universal-ctags'."
+        )
+        if (!ctags_test_check (msg, noerror = noerror)) {
+            return (FALSE)
+        }
+    }
 
     # remove header lines:
     x <- brio::read_lines (f_out)
@@ -161,6 +168,15 @@ ctags_test <- function (quiet = TRUE, noerror = FALSE) {
     }
 
     return (ret)
+}
+
+ctags_test_check <- function (msg = "", noerror = FALSE) {
+    if (noerror) {
+        message (msg)
+        return (FALSE)
+    } else {
+        stop (msg, call. = FALSE)
+    }
 }
 
 has_ctags <- function () {
