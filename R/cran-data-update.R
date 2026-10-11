@@ -23,17 +23,18 @@ pkgstats_update <- function (upload = TRUE) {
     results_path <- fs::dir_create (fs::path (fs::path_temp (), "pkgstats-results"))
 
     stats_prev_path <- dl_prev_data (results_path, what = "all")
-    stats_prev <- readRDS (stats_prev_path)
+    stats_prev <- rm_duplicate_rows (readRDS (stats_prev_path))
     fn_names_prev_path <- dl_prev_data (results_path, what = "fn_names")
-    fn_names_prev <- readRDS (fn_names_prev_path)
+    fn_names_prev <- rm_duplicate_rows (readRDS (fn_names_prev_path))
 
     check_prev_results (stats_prev)
     check_prev_results (fn_names_prev)
 
-    new_cran_pkgs <- unique (c (
-        list_new_cran_updates (stats_prev),
-        list_new_cran_updates (fn_names_prev)
-    ))
+    # 'stats_prev' is the authoritative list of packages already analysed.
+    # 'fn_names_prev' can not be used here, because it legitimately lacks
+    # packages with no function names, which would then be re-analysed (and
+    # re-appended) in every update.
+    new_cran_pkgs <- list_new_cran_updates (stats_prev)
 
     npkgs <- length (new_cran_pkgs)
 
@@ -62,6 +63,14 @@ pkgstats_update <- function (upload = TRUE) {
                 save_ex_calls = FALSE,
                 results_path
             )
+            # 'one_summary_from_archive()' can only get names and versions from
+            # tarball paths, not from extracted directories, so failed
+            # analyses have to be named here.
+            if (is.na (stats$package)) {
+                pkg_vers <- get_pkg_version (paste0 (new_cran_pkgs [p], ".tar.gz"))
+                stats ["package"] <- pkg_vers [1]
+                stats ["version"] <- pkg_vers [2]
+            }
             fn_names <- tryCatch (
                 pkgstats::pkgstats_fn_names (tarball_dir),
                 error = function (e) NULL
@@ -79,13 +88,10 @@ pkgstats_update <- function (upload = TRUE) {
     stats <- do.call (rbind, lapply (res, function (i) i$stats))
     fn_names <- do.call (rbind, lapply (res, function (i) i$fn_names))
 
-    if (!inherits (stats$date, "POSIXt")) {
-        stats$date <- as.POSIXct (stats$date, "%y-%m-%d %H-%M-%S")
-    }
-
-    stats <- rbind (stats_prev, stats [which (!is.na (stats$package)), ])
+    stats <- append_new_pkgs (stats_prev, stats)
+    stats <- force_col_types (stats)
     stats_current <- pkgstats_cran_current_from_full (stats)
-    fn_names <- rbind (fn_names_prev, fn_names [which (!is.na (fn_names$package)), ])
+    fn_names <- append_new_pkgs (fn_names_prev, fn_names)
 
     # Reduce fn_names to only current pkgs:
     stats_pkgs_current <- paste0 (stats_current$package, "_", stats_current$version)
@@ -178,6 +184,23 @@ list_new_cran_updates <- function (prev_results) {
         ret <- paste0 (cran_pkgs$Package, "_", cran_pkgs$Version)
     }
     return (ret)
+}
+
+#' Previous results must have one row per ("package", "version") for summary
+#' data, or one row per ("package", "version", "fn_name") for function names.
+#' Appending new results to data which already have duplicates would simply
+#' carry those through, so they are removed, retaining the first occurrence.
+#' @noRd
+rm_duplicate_rows <- function (prev_results) {
+
+    if (!inherits (prev_results, "data.frame")) {
+        return (prev_results)
+    }
+    cols <- intersect (c ("package", "version", "fn_name"), names (prev_results))
+    out <- prev_results [!duplicated (prev_results [, cols, drop = FALSE]), ]
+    rownames (out) <- NULL
+
+    return (out)
 }
 
 check_prev_results <- function (prev_results) {

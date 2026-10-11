@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.26">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Mark Padgham">
+<meta name="dcterms.date" content="2026-10-11">
+
+<title>Generating and updating pkgstats data.</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+width: 0.8em;
+margin: 0 0.8em 0.2em -1em;  vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+</style>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+</style>
+</head>
+
+<body>
+
+
+<header id="title-block-header">
+<h1 class="title">Generating and updating <code>pkgstats</code> data.</h1>
+<p class="author">Mark Padgham</p>
+
+<p class="date">2026-10-11</p>
+</header>
+
+
+<p>The <code>pkgstats</code> package is also intended to compare the statistics of an R package to equivalent statistics from all R packages that are, or ever were, on CRAN. For these comparisons, the package also includes developer-only functions to generate <code>pkgstats_summary()</code> results.</p>
+<p>These results are uploaded with <a href="https://github.com/ropensci-review-tools/pkgstats/releases/tag/v0.1.6">GitHub release version 0.1.6</a>. A <a href="https://github.com/ropensci-review-tools/pkgstats/blob/main/.github/workflows/update.yaml">GitHub workflow</a> calls the update function every day.</p>
+<div class="admonition warning">
+<div class="admonition-title">
+<p>Warning</p>
+</div>
+<p>This workflow is automatically disabled after 60 days of inactivity on the repository.</p>
+</div>
+<p>There are two main ways the data can be manually updated on a local machine.</p>
+<h2 id="direct-calls-of-the-update-functions">1. Direct calls of the update functions</h2>
+<p>The easiest way is to ensure the latest data have been cached (by calling <code>dl_pkgstats_data()</code>). Then call <code>pkgstats_update()</code>.</p>
+<p>That function will download any updates from CRAN and rOpenSci which are not present in the latest version, and extract all <code>pkgstats</code> from those. Package tarballs are downloaded in to the temporary directory of the current R session, and so are automatically removed afterwards.</p>
+<p>If enormous numbers of packages need to be updated, any bugs in package structure – which do happen! – may cause that function to fail. Even though every effort has been made to ensure that it will recover from every kind of error encountered thus far, R packages can break things in unexpected ways. For this reason, the second approach is recommended if at all possible, and it will always enable complete recovery without having to repeatedly download new packages.</p>
+<h2 id="update-from-a-local-cran-mirror">2. Update from a local CRAN mirror</h2>
+<p>Functions to clone local mirrors of both CRAN and rOpenSci are in the <a href="https://github.com/ropensci-review-tools/mirrors"><code>ropensci-review-tools/mirrors</code> repository</a>. The rOpenSci mirror is currently (Oct 2026) around 13GB, while CRAN is 160GB including all archived versions of all packages. These mirrors can be created or updated by calling <code>bash mirror-ropensci.sh</code> or <code>bash mirror-cran.sh</code>.</p>
+<p>Data can then be updated by passing those local-mirror paths to <code>pkgstats_from_archive()</code>.</p>
+<div class="admonition note">
+<div class="admonition-title">
+<p>Data upload</p>
+</div>
+<p>The <code>pkgstats_update()</code> function will automatically upload data to the <a href="https://github.com/ropensci-review-tools/pkgstats/releases/tag/v0.1.6">GitHub release</a>. The <code>pkgstats_from_archive()</code> returns the data without uploading, so you then have to do that manually – either via <a href="https://docs.ropensci.org/piggyback/"><code>piggyyback</code></a>, or through the GitHub website.</p>
+</div>
+
+
+
+
+
+</body></html>

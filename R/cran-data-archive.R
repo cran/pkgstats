@@ -96,6 +96,7 @@ pkgstats_from_archive <- function (path,
                 "'data.frame' of 'pkgstats' summaries"
             )
         }
+        prev_results <- rm_duplicate_rows (prev_results)
     }
 
     res <- NULL
@@ -175,9 +176,7 @@ pkgstats_from_archive <- function (path,
         res <- do.call (rbind, lapply (results_files, readRDS))
     }
 
-    out <- rbind (out, res)
-    out <- out [which (!is.na (out$package)), ]
-    rownames (out) <- NULL
+    out <- append_new_pkgs (out, res)
 
     if (!is.null (results_files)) {
         fs::file_delete (results_files)
@@ -190,6 +189,32 @@ pkgstats_from_archive <- function (path,
     }
 
     invisible (out)
+}
+
+#' Append new results to previous results, only for ("package", "version")
+#' combinations not already present in `prev`. Summary data have one row per
+#' combination, and function-name data have several, so any "fn_name" column
+#' is ignored here and all rows for a new combination are kept.
+#' @noRd
+append_new_pkgs <- function (prev, new) {
+
+    if (is.null (new)) {
+        return (prev)
+    }
+    new <- new [which (!is.na (new$package)), ]
+    pkg_key <- function (x) paste0 (x$package, "_", x$version)
+
+    if (!is.null (prev)) {
+        new <- new [which (!pkg_key (new) %in% pkg_key (prev)), ]
+    }
+    if (!"fn_name" %in% names (new)) {
+        new <- new [which (!duplicated (pkg_key (new))), ]
+    }
+
+    out <- rbind (prev, new)
+    rownames (out) <- NULL
+
+    return (out)
 }
 
 list_archive_files <- function (path, recursive = FALSE) {
@@ -330,15 +355,10 @@ one_summary_from_archive <- function (path, save_full,
                                       save_ex_calls, results_path) {
 
     logfiles <- list (
-        stdout = fs::path (fs::path_temp (), "pkgstats-stdout"),
-        stderr = fs::path (fs::path_temp (), "pkgstats-stderr")
+        stdout = fs::file_temp (pattern = "pkgstats-stdout-"),
+        stderr = fs::file_temp (pattern = "pkgstats-stderr-")
     )
-    if (fs::file_exists (logfiles$stdout)) {
-        fs::file_delete (logfiles$stdout)
-    }
-    if (fs::file_exists (logfiles$stderr)) {
-        fs::file_delete (logfiles$stderr)
-    }
+    on.exit (unlink (unlist (logfiles)), add = TRUE)
 
     ps <- callr::r_bg (
         func = pkgstats::pkgstats,
@@ -361,9 +381,6 @@ one_summary_from_archive <- function (path, save_full,
         ps$kill ()
         s <- NULL
     }
-
-    tryCatch (fs::file_delete (logfiles$stdout), error = function (e) NULL)
-    tryCatch (fs::file_delete (logfiles$stderr), error = function (e) NULL)
 
     if (save_full || save_ex_calls) {
         pkg <- utils::tail (decompose_path (path) [[1]], 1L)
